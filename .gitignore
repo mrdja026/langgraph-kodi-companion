@@ -2,3 +2,8 @@ server/dist
 server/node_modules
 agent/.venv
 *__pycache__
+agent/.env
+*.langgraph_api
+agent/*.sqlite
+test-fixtures/
+server/.env

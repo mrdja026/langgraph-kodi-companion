@@ -3,59 +3,109 @@ import asyncio
 import logging
 import sys
 
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from agent.config import settings
 from agent.graph import make_graph
-from agent.tools import bind_mcp_tools, verify_mcp_tools, get_duckduckgo_tool
+from agent.llm import check_llm_reachable
+from agent.tools import (
+    create_mcp_client,
+    verify_mcp_tools,
+    create_duckduckgo_tool,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def startup_health_check() -> None:
-    if settings.langsmith_tracing and not settings.langsmith_api_key:
+async def check_langsmith() -> None:
+    if not settings.langsmith_tracing:
+        return
+    if not settings.langsmith_api_key:
         logger.warning("LANGSMITH_TRACING enabled but LANGSMITH_API_KEY is unset — running untraced")
+        return
+    try:
+        import httpx
+        from uuid import uuid4
+        async with httpx.AsyncClient() as hc:
+            resp = await hc.post(
+                f"{settings.langsmith_endpoint}/runs",
+                headers={"x-api-key": settings.langsmith_api_key},
+                json={
+                    "name": "langgraph-mcp-agent-connectivity-check",
+                    "run_type": "llm",
+                    "inputs": {},
+                    "session_name": settings.langsmith_project,
+                    "id": str(uuid4()),
+                },
+                timeout=10,
+            )
+            if resp.status_code == 403:
+                logger.warning(
+                    "LangSmith API returned 403 Forbidden on run write — the API key "
+                    "lacks write permission. Traces will not be visible. "
+                    "Generate a new key at https://smith.langchain.com/settings"
+                    " with write access (or create the project first)."
+                )
+            elif resp.status_code != 200 and resp.status_code != 201:
+                logger.warning(f"LangSmith API returned {resp.status_code} — tracing may not work")
+    except Exception as exc:
+        logger.warning(f"LangSmith connectivity check failed: {exc}")
+
+
+async def ainput(prompt: str) -> str:
+    return await asyncio.to_thread(input, prompt)
 
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="LangGraph MCP Agent CLI")
     parser.add_argument("--thread", required=True, help="Conversation thread ID")
+    parser.add_argument("--skip-health-check", action="store_true", help="Skip LLM endpoint health check")
     args = parser.parse_args()
 
-    await startup_health_check()
+    await check_langsmith()
 
-    checkpointer = SqliteSaver.from_conn_string(settings.checkpoint_db)
+    if not args.skip_health_check:
+        try:
+            msg = await check_llm_reachable()
+            print(f"[{msg}]")
+        except ConnectionError as e:
+            print(f"ERROR: {e}")
+            print("Use --skip-health-check to bypass this check and try anyway.")
+            sys.exit(1)
 
-    async with MultiServerMCPClient() as client:
-        await bind_mcp_tools(client)
-        await verify_mcp_tools(client)
+    client = create_mcp_client()
+    mcp_tools = await client.get_tools()
+    await verify_mcp_tools(mcp_tools)
 
-        duckduckgo = get_duckduckgo_tool()
+    duckduckgo = create_duckduckgo_tool()
+    all_tools = mcp_tools + [duckduckgo]
 
-        dynamic_tools = client.get_tools()
-        dynamic_tools.append(duckduckgo)
+    config = {
+        "configurable": {"thread_id": args.thread},
+        "metadata": {"thread_id": args.thread},
+    }
 
-        agent = make_graph(tools=dynamic_tools, checkpointer=checkpointer)
+    print(f"Tools: {[t.name for t in all_tools]}")
 
-        config = {
-            "configurable": {"thread_id": args.thread},
-            "metadata": {"thread_id": args.thread},
-        }
+    async with AsyncSqliteSaver.from_conn_string(settings.checkpoint_db) as checkpointer:
+        agent = make_graph(tools=all_tools, checkpointer=checkpointer)
 
-        print(f"Agent ready. Thread: {args.thread}. Tools: {[t.name for t in dynamic_tools]}")
+        print(f"Agent ready. Thread: {args.thread}.")
         print("Type your message (Ctrl+C to exit):")
 
         while True:
             try:
-                user_input = input("> ").strip()
+                user_input = await ainput("\n> ")
+                user_input = user_input.strip()
                 if not user_input:
                     continue
             except (EOFError, KeyboardInterrupt):
                 print("\nGoodbye.")
                 break
 
+            final_answer = ""
+            tool_calls_in_turn = []
             try:
                 async for chunk in agent.astream(
                     {"messages": [{"role": "user", "content": user_input}]},
@@ -65,9 +115,21 @@ async def main() -> None:
                         if node_name == "agent":
                             last_msg = output["messages"][-1]
                             if hasattr(last_msg, "content") and last_msg.content:
-                                print(f"\n{last_msg.content}\n")
+                                final_answer = last_msg.content
+                        elif node_name == "tools":
+                            for msg in output.get("messages", []):
+                                if hasattr(msg, "name") and msg.name:
+                                    tool_calls_in_turn.append(msg.name)
             except Exception as e:
-                print(f"\nError: {e}\n")
+                print(f"\n[Error: {e}]")
+                continue
+
+            if tool_calls_in_turn:
+                unique_tools = list(dict.fromkeys(tool_calls_in_turn))
+                print(f"  [used: {', '.join(unique_tools)}]")
+
+            if final_answer:
+                print(f"\n{final_answer}")
 
 
 if __name__ == "__main__":

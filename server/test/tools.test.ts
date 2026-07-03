@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
@@ -12,6 +13,9 @@ let downloadAndFormatSeries: typeof import("../src/tools/series.js")["downloadAn
 let seriesSchema: typeof import("../src/tools/series.js")["seriesSchema"];
 
 beforeAll(async () => {
+  fs.mkdirSync(watchlistDir, { recursive: true });
+  fs.mkdirSync(mediaDir, { recursive: true });
+
   process.env.WATCHLIST_ROOT = watchlistDir;
   process.env.MEDIA_ROOT = mediaDir;
 
@@ -30,8 +34,14 @@ describe("watchlistSchema", () => {
     expect(result.directory_path).toBe("movies/tv shows to watch");
   });
 
-  it("rejects empty directory_path", () => {
-    expect(() => watchlistSchema.parse({ directory_path: "" })).toThrow();
+  it("defaults empty directory_path to ''", () => {
+    const result = watchlistSchema.parse({ directory_path: "" });
+    expect(result.directory_path).toBe("");
+  });
+
+  it("defaults missing directory_path to ''", () => {
+    const result = watchlistSchema.parse({});
+    expect(result.directory_path).toBe("");
   });
 });
 
@@ -42,9 +52,9 @@ describe("readWatchlist", () => {
     ).rejects.toThrow("Path traversal denied");
   });
 
-  it("returns missing directory message", async () => {
+  it("falls back to root when requested directory does not exist", async () => {
     const result = await readWatchlist({ directory_path: "nonexistent-dir" });
-    expect(result.content[0].text).toContain("Directory not found");
+    expect(result.content[0].text).toContain("No files found");
   });
 });
 

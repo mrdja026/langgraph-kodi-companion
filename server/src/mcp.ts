@@ -12,9 +12,9 @@ server.registerTool(
   "read_watchlist",
   {
     title: "Read Watchlist",
-    description: "Reads watchlist files from a directory on the host filesystem, confined to WATCHLIST_ROOT",
+    description: "Reads watchlist files. Pass an empty string or omit directory_path to read the root watchlist directory.",
     inputSchema: z.object({
-      directory_path: z.string().describe("Path relative to WATCHLIST_ROOT"),
+      directory_path: z.string().default("").describe("Subdirectory name (relative to watchlist root). Pass empty string for root."),
     }),
   },
   async (args) => {

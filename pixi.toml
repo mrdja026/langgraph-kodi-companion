@@ -1,0 +1,24 @@
+[workspace]
+name = "langgraph-automation"
+version = "0.1.0"
+description = "Conversational ReAct agent with MCP tool server — local LLM, LangGraph, LangSmith"
+platforms = ["win-64"]
+channels = ["conda-forge"]
+
+[tasks]
+install = { cmd = "python -m uv sync", cwd = "agent" }
+install-server = { cmd = "npm install", cwd = "server" }
+install-all = { depends-on = ["install", "install-server"] }
+
+build = { cmd = "npm run build", cwd = "server" }
+build-all = { depends-on = ["build"] }
+
+test = { cmd = "npm test", cwd = "server" }
+test-agent = { cmd = "python -m uv run python -c \"from agent.graph import graph; from agent.llm import check_llm_reachable; from agent.tools import create_mcp_client, RetryPolicyInterceptor; print('agent OK')\"", cwd = "agent" }
+test-all = { depends-on = ["test", "test-agent"] }
+
+dev-server = { cmd = "npm run dev", cwd = "server" }
+agent = { cmd = "python -m uv run python -m agent.main", cwd = "agent" }
+dev-studio = { cmd = "python -m uv run langgraph dev --no-browser", cwd = "agent" }
+
+lint = { cmd = "npm run build", cwd = "server" }
