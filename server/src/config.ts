@@ -31,6 +31,11 @@ export function getConfig() {
     langsmithApiKey: env("LANGSMITH_API_KEY", ""),
     langsmithProject: env("LANGSMITH_PROJECT", "langgraph-mcp-agent"),
 
+    qbtHost: env("QBT_HOST", "localhost"),
+    qbtPort: envNum("QBT_PORT", 8080),
+    qbtUsername: env("QBT_USERNAME", "admin"),
+    qbtPassword: env("QBT_PASSWORD", "adminadmin"),
+
     mcpBindHost: env("MCP_BIND_HOST", "127.0.0.1"),
     mcpBindPort: envNum("MCP_BIND_PORT", 3001),
   };

@@ -28,11 +28,14 @@ server.registerTool(
   {
     title: "Download and Format Series",
     description:
-      "Creates placeholder media files for a TV series in the standardized Show Name/Season NN/S##E##.mp4 layout under MEDIA_ROOT. STUB — no real download occurs.",
+      "Adds magnet URLs to qBittorrent for download, organized under MEDIA_ROOT/<Series>/Season NN/. " +
+      "If magnet_urls is not provided, the tool auto-searches qBittorrent's built-in search plugins and returns the found magnet URLs. " +
+      "Pass the returned magnet_urls array back in a second call to trigger the actual download.",
     inputSchema: z.object({
       series_name: z.string().describe("Name of the series"),
       seasons: z.number().int().min(1).optional().default(1).describe("Number of seasons"),
       episodes_per_season: z.number().int().min(1).optional().default(3).describe("Episodes per season"),
+      magnet_urls: z.array(z.string()).optional().describe("Optional magnet links. If omitted, the tool returns search hints."),
     }),
   },
   async (args) => {

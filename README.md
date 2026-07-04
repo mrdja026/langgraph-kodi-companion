@@ -6,10 +6,10 @@ This repo lives at: `C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph
 
 It contains **two independent projects** in one repo:
 
-| Project | Dir | Lang | Manager | Port |
-|---------|-----|------|---------|------|
-| LangGraph Agent | `agent/` | Python | uv (`python -m uv`) | — |
-| MCP Tool Server | `server/` | TypeScript | npm | 3001 |
+| Project         | Dir       | Lang       | Manager             | Port |
+| --------------- | --------- | ---------- | ------------------- | ---- |
+| LangGraph Agent | `agent/`  | Python     | uv (`python -m uv`) | —    |
+| MCP Tool Server | `server/` | TypeScript | npm                 | 3001 |
 
 They communicate over **MCP Streamable HTTP** (JSON-RPC 2.0). The LLM runs on a **local GPU endpoint** at port 8000.
 
@@ -19,22 +19,24 @@ They communicate over **MCP Streamable HTTP** (JSON-RPC 2.0). The LLM runs on a 
 
 ### 0. Prerequisites
 
-| Tool | How to check | Where to get it |
-|------|-------------|-----------------|
-| Python 3.12+ | `python --version` | python.org |
-| uv | `python -m uv --version` | `pip install uv` |
-| Node.js 22+ | `node --version` | nodejs.org |
-| npm | `npm --version` | ships with Node |
+| Tool         | How to check             | Where to get it  |
+| ------------ | ------------------------ | ---------------- |
+| Python 3.12+ | `python --version`       | python.org       |
+| uv           | `python -m uv --version` | `pip install uv` |
+| Node.js 22+  | `node --version`         | nodejs.org       |
+| npm          | `npm --version`          | ships with Node  |
 
 ### 1. Install dependencies
 
 **Agent (Python):**
+
 ```
 cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\agent
 python -m uv sync
 ```
 
 **Server (TypeScript):**
+
 ```
 cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\server
 npm install
@@ -45,6 +47,7 @@ npm install
 Copy `.env.example` to `.env` in both folders and edit them.
 
 **`agent\.env`:**
+
 ```
 LLM_BASE_URL=http://localhost:8000/v1
 LLM_API_KEY=local
@@ -56,6 +59,7 @@ LANGSMITH_TRACING=false      # set true if you set a key
 ```
 
 **`server\.env`** (server automatically loads this via `dotenv`):
+
 ```
 MCP_BIND_HOST=127.0.0.1
 MCP_BIND_PORT=3001
@@ -68,16 +72,20 @@ MEDIA_ROOT=
 Start a local model server with OpenAI-compatible API and tool calling support.
 
 **Option A — ollama (recommended, CPU-friendly):**
+
 ```bash
 ollama pull qwen2.5:3b   # or any tool-calling model
 ollama serve             # already running if you used 'ollama pull'
 ```
+
 Set `LLM_BASE_URL=http://localhost:11434/v1`, `LLM_API_KEY=ollama`, `LLM_MODEL=qwen2.5:3b` in `agent/.env`.
 
 **Option B — vLLM (GPU):**
+
 ```bash
 vllm serve <model-name> --enable-auto-tool-choice --tool-call-parser <parser>
 ```
+
 Set `LLM_BASE_URL=http://localhost:8000/v1`, `LLM_API_KEY=local`, `LLM_MODEL=<model>` in `agent/.env`.
 
 It must be reachable at the `LLM_BASE_URL` you set in `.env`. The model MUST support OpenAI-style tool calling (the `tools` parameter and `tool_calls` in responses).
@@ -90,6 +98,7 @@ npm run dev
 ```
 
 Expected output:
+
 ```
 MCP server starting on 127.0.0.1:3001
 MCP endpoint: http://127.0.0.1:3001/mcp
@@ -98,6 +107,7 @@ MCP endpoint: http://127.0.0.1:3001/mcp
 ### 5. Start the agent
 
 **Option A — CLI REPL (Terminal 2):**
+
 ```
 cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\agent
 python -m uv run python -m agent.main --thread my-first-chat
@@ -108,12 +118,14 @@ The `--thread` value is your conversation ID. Use the same ID later to resume th
 > **Note:** The server uses `dotenv` to load `.env` automatically. After changing `.env` values, restart the server for them to take effect.
 
 **Option B — LangGraph Studio (Terminal 2):**
+
 ```
 cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\agent
 python -m uv run langgraph dev --no-browser
 ```
 
 Then open this URL in your browser:
+
 ```
 https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 ```
@@ -121,11 +133,13 @@ https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 ### 6. Chat
 
 Try asking:
+
 - "What's on my watchlist?" → calls `read_watchlist` MCP tool
 - "Did any show get a new season?" → calls DuckDuckGo search
 - "Download Dark for me" → calls `download_and_format_series` stub
 
 **Test fixtures** (set `WATCHLIST_ROOT` and `MEDIA_ROOT` to these paths):
+
 ```
 test-fixtures/
 ├── watchlist/
@@ -181,41 +195,46 @@ C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\
 
 ## Pixi commands (optional shortcut from repo root)
 
-| Command | What it does |
-|---------|-------------|
+| Command                | What it does                      |
+| ---------------------- | --------------------------------- |
 | `pixi run install-all` | install all deps (agent + server) |
-| `pixi run test` | run server unit tests |
-| `pixi run build` | compile server TypeScript |
-| `pixi run dev-server` | start MCP server |
-| `pixi run dev-agent` | start CLI REPL |
+| `pixi run test`        | run server unit tests             |
+| `pixi run build`       | compile server TypeScript         |
+| `pixi run dev-server`  | start MCP server                  |
+| `pixi run dev-agent`   | start CLI REPL                    |
 
 ---
 
 ## Environment Variables
 
-| Variable | Default | Where | Description |
-|----------|---------|-------|-------------|
-| `LLM_BASE_URL` | `http://localhost:8000/v1` | agent/.env | OpenAI-compatible endpoint |
-| `LLM_API_KEY` | `local` | agent/.env | API key (dummy for local) |
-| `LLM_MODEL` | (empty) | agent/.env | Model name |
-| `LLM_TIMEOUT_S` | `120` | agent/.env | LLM request timeout |
-| `MCP_SERVER_URL` | `http://localhost:3001/mcp` | agent/.env | MCP server address |
-| `MCP_TIMEOUT_S` | `30` | agent/.env | MCP call timeout |
-| `CHECKPOINT_DB` | `checkpoints.sqlite` | agent/.env | SQLite file for chat history |
-| `AGENT_RECURSION_LIMIT` | `25` | agent/.env | Max tool calls per turn |
-| `WATCHLIST_ROOT` | (empty) | both | Directory for watchlist reads |
-| `MEDIA_ROOT` | (empty) | both | Directory for placeholder files |
-| `LANGSMITH_API_KEY` | (empty) | agent/.env | For LangSmith tracing |
-| `LANGSMITH_TRACING` | `false` | agent/.env | Set `true` to enable traces |
-| `LANGSMITH_PROJECT` | `langgraph-mcp-agent` | agent/.env | LangSmith project name |
-| `MCP_BIND_HOST` | `127.0.0.1` | server/.env | Server listen address |
-| `MCP_BIND_PORT` | `3001` | server/.env | Server listen port |
+| Variable                | Default                     | Where       | Description                     |
+| ----------------------- | --------------------------- | ----------- | ------------------------------- |
+| `LLM_BASE_URL`          | `http://localhost:8000/v1`  | agent/.env  | OpenAI-compatible endpoint      |
+| `LLM_API_KEY`           | `local`                     | agent/.env  | API key (dummy for local)       |
+| `LLM_MODEL`             | (empty)                     | agent/.env  | Model name                      |
+| `LLM_TIMEOUT_S`         | `120`                       | agent/.env  | LLM request timeout             |
+| `MCP_SERVER_URL`        | `http://localhost:3001/mcp` | agent/.env  | MCP server address              |
+| `MCP_TIMEOUT_S`         | `30`                        | agent/.env  | MCP call timeout                |
+| `CHECKPOINT_DB`         | `checkpoints.sqlite`        | agent/.env  | SQLite file for chat history    |
+| `AGENT_RECURSION_LIMIT` | `25`                        | agent/.env  | Max tool calls per turn         |
+| `WATCHLIST_ROOT`        | (empty)                     | both        | Directory for watchlist reads   |
+| `MEDIA_ROOT`            | (empty)                     | both        | Directory for placeholder files |
+| `LANGSMITH_API_KEY`     | (empty)                     | agent/.env  | For LangSmith tracing           |
+| `LANGSMITH_TRACING`     | `false`                     | agent/.env  | Set `true` to enable traces     |
+| `LANGSMITH_PROJECT`     | `langgraph-mcp-agent`       | agent/.env  | LangSmith project name          |
+| `MCP_BIND_HOST`         | `127.0.0.1`                 | server/.env | Server listen address           |
+| `MCP_BIND_PORT`         | `3001`                      | server/.env | Server listen port              |
 
 ---
 
 ## TODO
 
+- **Conversation feature to find what i want** - needs to search what is donwloaded, and maybe other obsidian vault (my case) or an location with md files
 - **Slow graph load in Studio (918ms):** The `graph()` factory in `graph.py` connects to the MCP server and fetches tools on every call. In LangGraph Studio, this happens on each request, adding ~900ms latency. Cache the MCP client connection or pre-warm it at Studio startup.
+- **TV Shows downloads are not formated** - Tv shows should be {show name} - {Season 0{n}} - [{Episode 0{n}}].
+- **Feature** add tags to search magnet links for books/academic/tv/movies/anime/ect - (both client agent and server)
+
+---
 
 ## Notes
 
