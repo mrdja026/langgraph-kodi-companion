@@ -7,3 +7,5 @@ agent/.env
 agent/*.sqlite
 test-fixtures/
 server/.env
+client/dist
+client/node_modules

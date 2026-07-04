@@ -229,9 +229,11 @@ C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\
 
 ## TODO
 
+- **Feature** Obisidian integration (so it can be pulled as a context, better mcp, frontmatter parsing to get the correct md)
 - **Conversation feature to find what i want** - needs to search what is donwloaded, and maybe other obsidian vault (my case) or an location with md files
 - **Slow graph load in Studio (918ms):** The `graph()` factory in `graph.py` connects to the MCP server and fetches tools on every call. In LangGraph Studio, this happens on each request, adding ~900ms latency. Cache the MCP client connection or pre-warm it at Studio startup.
 - **TV Shows downloads are not formated** - Tv shows should be {show name} - {Season 0{n}} - [{Episode 0{n}}].
+  - It might decide to download the largest one ask (tweak the sys prompt) to ask for resolution or max file size +-
 - **Feature** add tags to search magnet links for books/academic/tv/movies/anime/ect - (both client agent and server)
 
 ---
