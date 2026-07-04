@@ -10,6 +10,7 @@ llm = ChatOpenAI(
     model=settings.llm_model or "",
     timeout=settings.llm_timeout_s,
     temperature=0,
+    streaming=True,
 )
 
 

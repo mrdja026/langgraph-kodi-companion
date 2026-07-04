@@ -8,10 +8,10 @@ from langchain_community.tools import DuckDuckGoSearchRun
 
 from agent.config import settings
 
-REQUIRED_MCP_TOOLS = {"read_watchlist", "download_and_format_series"}
+REQUIRED_MCP_TOOLS = {"read_watchlist", "search_and_download_tv_series", "search_and_download_movie"}
 
 READ_ONLY_TOOLS = {"read_watchlist"}
-MUTATING_TOOLS = {"download_and_format_series"}
+MUTATING_TOOLS = {"search_and_download_tv_series", "search_and_download_movie"}
 
 
 def create_mcp_client() -> MultiServerMCPClient:

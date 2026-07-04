@@ -57,6 +57,52 @@ export async function sendMessage(
   const decoder = new TextDecoder();
   let buffer = "";
   let lastContent = "";
+  const notifiedToolCalls = new Set<string>();
+
+  // Extract tool call names from both tool_call_chunks and tool_calls fields
+  function detectToolCalls(msg: Record<string, unknown>) {
+    // Streaming chunks: tool_call_chunks
+    if (msg.tool_call_chunks && Array.isArray(msg.tool_call_chunks)) {
+      for (const chunk of msg.tool_call_chunks) {
+        if (chunk.name && !notifiedToolCalls.has(chunk.name)) {
+          notifiedToolCalls.add(chunk.name);
+          callbacks.onToolCall(chunk.name);
+        }
+      }
+    }
+    // Finalized calls: tool_calls
+    if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+      for (const tc of msg.tool_calls) {
+        if (tc.name && !notifiedToolCalls.has(tc.name)) {
+          notifiedToolCalls.add(tc.name);
+          callbacks.onToolCall(tc.name);
+        }
+      }
+    }
+  }
+
+  function isAiMessage(msg: Record<string, unknown>) {
+    return msg.type === "ai" || msg.type === "AIMessageChunk" || msg.role === "assistant";
+  }
+
+  function isToolMessage(msg: Record<string, unknown>) {
+    return msg.type === "tool" || msg.type === "ToolMessage";
+  }
+
+  function processMessage(msg: Record<string, unknown>, emitToken: boolean) {
+    if (isAiMessage(msg)) {
+      detectToolCalls(msg);
+      const content = (msg.content as string) ?? "";
+      if (typeof content === "string" && content.length > 0) {
+        // Server sends accumulated content — replace, don't append
+        lastContent = content;
+        if (emitToken) callbacks.onToken(lastContent);
+      }
+    } else if (isToolMessage(msg)) {
+      const name = msg.name as string;
+      if (name) callbacks.onToolResult(name);
+    }
+  }
 
   try {
     while (true) {
@@ -74,57 +120,19 @@ export async function sendMessage(
       for (const line of lines) {
         if (line.startsWith("event: ")) {
           eventType = line.slice(7).trim();
-        } else if (line.startsWith("data: ") && eventType === "messages/partial") {
+        } else if (line.startsWith("data: ") && (eventType === "messages/partial" || eventType === "messages/complete")) {
           try {
             const data = JSON.parse(line.slice(6));
-            // The data is an array of message chunks. We want the last
-            // assistant message content.
+            const emitToken = eventType === "messages/partial";
             if (Array.isArray(data)) {
               for (const msg of data) {
-                if (msg.type === "ai" || msg.role === "assistant") {
-                  const content = msg.content ?? "";
-                  if (typeof content === "string" && content.length > 0) {
-                    lastContent = content;
-                    callbacks.onToken(lastContent);
-                  }
-                }
+                if (msg && typeof msg === "object") processMessage(msg, emitToken);
               }
-            } else if (
-              data &&
-              (data.type === "ai" || data.role === "assistant")
-            ) {
-              const content = data.content ?? "";
-              if (typeof content === "string" && content.length > 0) {
-                lastContent = content;
-                callbacks.onToken(lastContent);
-              }
+            } else if (data && typeof data === "object") {
+              processMessage(data, emitToken);
             }
           } catch {
             // Ignore malformed JSON chunks
-          }
-        } else if (line.startsWith("data: ") && eventType === "messages/complete") {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (Array.isArray(data)) {
-              for (const msg of data) {
-                if (msg.type === "ai" || msg.role === "assistant") {
-                  const content = msg.content ?? "";
-                  if (typeof content === "string" && content.length > 0) {
-                    lastContent = content;
-                  }
-                }
-              }
-            } else if (
-              data &&
-              (data.type === "ai" || data.role === "assistant")
-            ) {
-              const content = data.content ?? "";
-              if (typeof content === "string" && content.length > 0) {
-                lastContent = content;
-              }
-            }
-          } catch {
-            // Ignore malformed JSON
           }
         }
       }

@@ -20,8 +20,9 @@ test-agent = { cmd = "python -m uv run python -c \"from agent.graph import graph
 test-all = { depends-on = ["test", "test-agent"] }
 
 dev-server = { cmd = "npm run dev", cwd = "server" }
-agent = { cmd = "python -m uv run python -m agent.main", cwd = "agent" }
-dev-studio = { cmd = "python -m uv run langgraph dev --no-browser", cwd = "agent" }
+server = { depends-on = ["build"], cmd = "npm start", cwd = "server", description = "Build + start MCP server (production)" }
+agent = { cmd = "python -m uv run langgraph dev --no-browser", cwd = "agent", description = "Start LangGraph API server (studio + client endpoint on :2024)" }
+agent-cli = { cmd = "python -m uv run python -m agent.main", cwd = "agent", description = "Run LangGraph agent CLI (use -- --thread <id>)" }
 
 dev-client = { cmd = "npm run dev", cwd = "client" }
 dev-all = { cmd = "powershell -NoProfile -Command \"Start-Process powershell -ArgumentList '-NoExit','-Command','cd server; npm run dev' ; Start-Process powershell -ArgumentList '-NoExit','-Command','cd agent; python -m uv run langgraph dev --no-browser' ; Start-Process powershell -ArgumentList '-NoExit','-Command','cd client; npm run dev'\"" }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { Message } from "../types";
+import type { Message, ToolCallInfo, StreamCallbacks } from "../types";
 import { createThread, sendMessage } from "../api/langgraph";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
@@ -11,9 +11,13 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
+  const toolCallsRef = useRef(toolCalls);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamingIdRef = useRef<string | null>(null);
+  const addedRef = useRef(false);
+  const greetedRef = useRef(false);
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -53,16 +57,109 @@ export default function ChatPage() {
     };
   }, []);
 
+  // Auto-trigger greeting when thread is created
+  useEffect(() => {
+    if (threadId && !greetedRef.current) {
+      greetedRef.current = true;
+      triggerGreeting(threadId);
+    }
+  }, [threadId]);
+
   // Scroll when messages change or loading changes
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  const updateAssistantMsg = useCallback((updates: Partial<Message>) => {
+    const id = streamingIdRef.current;
+    if (!id) return;
+    setMessages((prev) => {
+      const exists = prev.some((m) => m.id === id);
+      if (!exists) return prev;
+      return prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+    });
+  }, []);
+
+  function createStreamCallbacks(
+    assistantMsg: Message,
+    assistantId: string,
+  ): StreamCallbacks {
+    let added = false;
+
+    return {
+      onToken: (accumulated) => {
+        if (!added) {
+          setMessages((prev) => [
+            ...prev,
+            { ...assistantMsg, content: accumulated, toolCalls: toolCallsRef.current.length > 0 ? [...toolCallsRef.current] : undefined },
+          ]);
+          added = true;
+          addedRef.current = true;
+        } else {
+          updateAssistantMsg({ content: accumulated, toolCalls: toolCallsRef.current.length > 0 ? [...toolCallsRef.current] : undefined });
+        }
+      },
+      onToolCall: (toolName) => {
+        const updated: ToolCallInfo[] = [...toolCallsRef.current, { name: toolName, status: "calling" as const }];
+        toolCallsRef.current = updated;
+        setToolCalls(updated);
+        if (addedRef.current) {
+          updateAssistantMsg({ toolCalls: updated });
+        }
+      },
+      onToolResult: (toolName) => {
+        const updated = toolCallsRef.current.map(tc =>
+          tc.name === toolName ? { ...tc, status: "completed" as const } : tc,
+        );
+        toolCallsRef.current = updated;
+        setToolCalls(updated);
+        if (addedRef.current) {
+          updateAssistantMsg({ toolCalls: updated });
+        }
+      },
+      onComplete: (finalContent) => {
+        const finalToolCalls = toolCallsRef.current.length > 0 ? [...toolCallsRef.current] : undefined;
+        if (!added) {
+          setMessages((prev) => [
+            ...prev,
+            { ...assistantMsg, content: finalContent || "", toolCalls: finalToolCalls },
+          ]);
+        } else {
+          updateAssistantMsg({ content: finalContent || "", toolCalls: finalToolCalls });
+        }
+        setIsLoading(false);
+        streamingIdRef.current = null;
+      },
+      onError: (errorMsg) => {
+        const errMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `**Error:** ${errorMsg}`,
+          toolCalls: toolCallsRef.current.length > 0 ? [...toolCallsRef.current] : undefined,
+          timestamp: Date.now(),
+        };
+
+        if (!added) {
+          setMessages((prev) => [...prev, errMessage]);
+        } else {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, ...errMessage }
+                : m
+            )
+          );
+        }
+        setIsLoading(false);
+        streamingIdRef.current = null;
+      },
+    };
+  }
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || !threadId || isLoading) return;
 
-    // Add user message
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -74,9 +171,11 @@ export default function ChatPage() {
     setInput("");
     setIsLoading(true);
 
-    // Create placeholder assistant message
     const assistantId = crypto.randomUUID();
     streamingIdRef.current = assistantId;
+    addedRef.current = false;
+    toolCallsRef.current = [];
+    setToolCalls([]);
 
     const assistantMsg: Message = {
       id: assistantId,
@@ -85,63 +184,29 @@ export default function ChatPage() {
       timestamp: Date.now(),
     };
 
-    // We'll add the assistant message once the first token arrives
-    let added = false;
+    const callbacks = createStreamCallbacks(assistantMsg, assistantId);
+    await sendMessage(threadId, text, callbacks);
+  }, [input, threadId, isLoading, updateAssistantMsg]);
 
-    await sendMessage(threadId, text, {
-      onToken: (accumulated) => {
-        if (!added) {
-          setMessages((prev) => [...prev, { ...assistantMsg, content: accumulated }]);
-          added = true;
-        } else {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: accumulated } : m
-            )
-          );
-        }
-      },
-      onComplete: (finalContent) => {
-        if (!added && finalContent) {
-          setMessages((prev) => [
-            ...prev,
-            { ...assistantMsg, content: finalContent },
-          ]);
-        } else if (added) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: finalContent } : m
-            )
-          );
-        }
-        setIsLoading(false);
-        streamingIdRef.current = null;
-      },
-      onError: (errorMsg) => {
-        // Add error as a system-like assistant message
-        const errMessage: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `**Error:** ${errorMsg}`,
-          timestamp: Date.now(),
-        };
+  const triggerGreeting = useCallback(async (id: string) => {
+    setIsLoading(true);
 
-        if (!added) {
-          setMessages((prev) => [...prev, errMessage]);
-        } else {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: `**Error:** ${errorMsg}` }
-                : m
-            )
-          );
-        }
-        setIsLoading(false);
-        streamingIdRef.current = null;
-      },
-    });
-  }, [input, threadId, isLoading]);
+    const assistantId = crypto.randomUUID();
+    streamingIdRef.current = assistantId;
+    addedRef.current = false;
+    toolCallsRef.current = [];
+    setToolCalls([]);
+
+    const assistantMsg: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+    };
+
+    const callbacks = createStreamCallbacks(assistantMsg, assistantId);
+    await sendMessage(id, "__greet__", callbacks);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -169,9 +234,8 @@ export default function ChatPage() {
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
-        {isLoading && !streamingIdRef.current && <LoadingIndicator />}
-        {isLoading && streamingIdRef.current && messages.find(m => m.id === streamingIdRef.current && m.content === "") && (
-          <LoadingIndicator />
+        {isLoading && (
+          <LoadingIndicator toolCalls={toolCalls.length > 0 ? toolCalls : undefined} />
         )}
       </div>
 

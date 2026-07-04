@@ -21,7 +21,7 @@ export function getConfig() {
     mcpServerUrl: env("MCP_SERVER_URL", "http://localhost:3001/mcp"),
     mcpTimeoutS: envNum("MCP_TIMEOUT_S", 30),
 
-    watchlistRoot: env("WATCHLIST_ROOT", ""),
+    watchlistRoot: env("WATCHLIST_ROOT", "C:/Users/Mrdjan/Documents/mrdjan.stajic/Tv_langgraph"),
     mediaRoot: env("MEDIA_ROOT", ""),
 
     checkpointDb: env("CHECKPOINT_DB", "checkpoints.sqlite"),

@@ -18,6 +18,33 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class Spinner:
+    def __init__(self):
+        self._running = False
+        self._task = None
+        self._frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    async def _spin(self):
+        i = 0
+        while self._running:
+            sys.stdout.write(f"\r{self._frames[i]} ")
+            sys.stdout.flush()
+            i = (i + 1) % len(self._frames)
+            await asyncio.sleep(0.1)
+        sys.stdout.write("\r" + " " * 60 + "\r")
+        sys.stdout.flush()
+
+    async def start(self):
+        self._running = True
+        self._task = asyncio.create_task(self._spin())
+
+    async def stop(self):
+        self._running = False
+        if self._task:
+            await self._task
+            self._task = None
+
+
 async def check_langsmith() -> None:
     if not settings.langsmith_tracing:
         return
@@ -59,7 +86,7 @@ async def ainput(prompt: str) -> str:
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="LangGraph MCP Agent CLI")
-    parser.add_argument("--thread", required=True, help="Conversation thread ID")
+    parser.add_argument("--thread", default="default", help="Conversation thread ID (default: default)")
     parser.add_argument("--skip-health-check", action="store_true", help="Skip LLM endpoint health check")
     args = parser.parse_args()
 
@@ -105,28 +132,35 @@ async def main() -> None:
                 break
 
             final_answer = ""
-            tool_calls_in_turn = []
+            spinner = Spinner()
+            await spinner.start()
             try:
                 async for chunk in agent.astream(
                     {"messages": [{"role": "user", "content": user_input}]},
                     config,
                 ):
+                    await spinner.stop()
                     for node_name, output in chunk.items():
                         if node_name == "agent":
                             last_msg = output["messages"][-1]
+                            if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+                                tool_names = [tc["name"] for tc in last_msg.tool_calls]
+                                print(f"\n  ▶ {', '.join(tool_names)}")
                             if hasattr(last_msg, "content") and last_msg.content:
                                 final_answer = last_msg.content
                         elif node_name == "tools":
                             for msg in output.get("messages", []):
                                 if hasattr(msg, "name") and msg.name:
-                                    tool_calls_in_turn.append(msg.name)
+                                    print(f"  ✓ {msg.name}")
+                    await spinner.start()
+            except asyncio.CancelledError:
+                print("\nInterrupted.")
+                continue
             except Exception as e:
                 print(f"\n[Error: {e}]")
                 continue
-
-            if tool_calls_in_turn:
-                unique_tools = list(dict.fromkeys(tool_calls_in_turn))
-                print(f"  [used: {', '.join(unique_tools)}]")
+            finally:
+                await spinner.stop()
 
             if final_answer:
                 print(f"\n{final_answer}")
