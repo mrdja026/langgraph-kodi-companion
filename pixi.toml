@@ -21,7 +21,8 @@ test-all = { depends-on = ["test", "test-agent"] }
 
 dev-server = { cmd = "npm run dev", cwd = "server" }
 server = { depends-on = ["build"], cmd = "npm start", cwd = "server", description = "Build + start MCP server (production)" }
-agent = { cmd = "python -m uv run langgraph dev --no-browser", cwd = "agent", description = "Start LangGraph API server (studio + client endpoint on :2024)" }
+agent = { cmd = "python -m uv run langgraph dev --no-browser", cwd = "agent", description = "Start LangGraph API server (localhost only, :2024)" }
+agent-for-kodi = { cmd = "python -m uv run langgraph dev --no-browser --host 0.0.0.0", cwd = "agent", description = "Start LangGraph API server (LAN accessible, :2024) for Kodi Companion app" }
 agent-cli = { cmd = "python -m uv run python -m agent.main", cwd = "agent", description = "Run LangGraph agent CLI (use -- --thread <id>)" }
 
 dev-client = { cmd = "npm run dev", cwd = "client" }

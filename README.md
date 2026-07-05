@@ -4,7 +4,7 @@ Conversational ReAct agent with an MCP tool server — local LLM inference, Lang
 
 This repo lives at: `C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation`
 
-It contains **two independent projects** in one repo:
+It contains **three independent projects** in one repo:
 
 | Project         | Dir       | Lang       | Manager             | Port |
 | --------------- | --------- | ---------- | ------------------- | ---- |
@@ -40,6 +40,13 @@ python -m uv sync
 
 ```
 cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\server
+npm install
+```
+
+**Client (TypeScript):**
+
+```
+cd C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\client
 npm install
 ```
 
@@ -146,6 +153,7 @@ npm run dev
 Opens on `http://localhost:5173`. Proxies API calls to the LangGraph server on port 2024.
 
 **What the client does:**
+
 - Creates a new thread on load and auto-triggers an agent greeting
 - The agent greets you, scans your watchlist directory via `read_watchlist`, and lists its capabilities
 - **SSE streaming** — tokens appear progressively in the message bubble as the LLM generates
@@ -251,48 +259,48 @@ C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\
 
 ## Pixi commands (run from repo root)
 
-| Command                  | What it does                                      |
-| ------------------------ | ------------------------------------------------- |
-| `pixi run install-all`   | install all deps (agent + server + client)        |
-| `pixi run build`         | compile server TypeScript                         |
-| `pixi run build-client`  | compile client TypeScript (Vite)                  |
-| `pixi run build-all`     | compile server + client                           |
-| `pixi run test`          | run server unit tests (49 tests)                  |
-| `pixi run test-agent`    | smoke-test agent imports                          |
-| `pixi run test-all`      | run all tests                                     |
-| `pixi run dev-server`    | start MCP server (nodemon, port 3001)             |
-| `pixi run server`        | build + start MCP server (production)             |
-| `pixi run agent`         | start LangGraph API server (port 2024)            |
-| `pixi run agent-cli`     | run agent CLI (add `-- --thread <id>`)            |
-| `pixi run dev-client`    | start React dev server (Vite, port 5173)          |
-| `pixi run dev-all`       | start MCP + LangGraph API + React client in 3 terminals |
-| `pixi run lint`          | compile server (TypeScript check)                 |
+| Command                 | What it does                                            |
+| ----------------------- | ------------------------------------------------------- |
+| `pixi run install-all`  | install all deps (agent + server + client)              |
+| `pixi run build`        | compile server TypeScript                               |
+| `pixi run build-client` | compile client TypeScript (Vite)                        |
+| `pixi run build-all`    | compile server + client                                 |
+| `pixi run test`         | run server unit tests (49 tests)                        |
+| `pixi run test-agent`   | smoke-test agent imports                                |
+| `pixi run test-all`     | run all tests                                           |
+| `pixi run dev-server`   | start MCP server (nodemon, port 3001)                   |
+| `pixi run server`       | build + start MCP server (production)                   |
+| `pixi run agent`        | start LangGraph API server (port 2024)                  |
+| `pixi run agent-cli`    | run agent CLI (add `-- --thread <id>`)                  |
+| `pixi run dev-client`   | start React dev server (Vite, port 5173)                |
+| `pixi run dev-all`      | start MCP + LangGraph API + React client in 3 terminals |
+| `pixi run lint`         | compile server (TypeScript check)                       |
 
 ---
 
 ## Environment Variables
 
-| Variable                | Default                                   | Where       | Description                         |
-| ----------------------- | ----------------------------------------- | ----------- | ----------------------------------- |
-| `LLM_BASE_URL`          | `http://localhost:8000/v1`                | agent/.env  | OpenAI-compatible endpoint          |
-| `LLM_API_KEY`           | `local`                                   | agent/.env  | API key (dummy for local)           |
-| `LLM_MODEL`             | (empty)                                   | agent/.env  | Model name                          |
-| `LLM_TIMEOUT_S`         | `120`                                     | agent/.env  | LLM request timeout                 |
-| `MCP_SERVER_URL`        | `http://localhost:3001/mcp`               | agent/.env  | MCP server address                  |
-| `MCP_TIMEOUT_S`         | `30`                                      | agent/.env  | MCP call timeout                    |
-| `CHECKPOINT_DB`         | `checkpoints.sqlite`                      | agent/.env  | SQLite file for chat history        |
-| `AGENT_RECURSION_LIMIT` | `25`                                      | agent/.env  | Max tool calls per turn             |
+| Variable                | Default                                                | Where                           | Description                   |
+| ----------------------- | ------------------------------------------------------ | ------------------------------- | ----------------------------- |
+| `LLM_BASE_URL`          | `http://localhost:8000/v1`                             | agent/.env                      | OpenAI-compatible endpoint    |
+| `LLM_API_KEY`           | `local`                                                | agent/.env                      | API key (dummy for local)     |
+| `LLM_MODEL`             | (empty)                                                | agent/.env                      | Model name                    |
+| `LLM_TIMEOUT_S`         | `120`                                                  | agent/.env                      | LLM request timeout           |
+| `MCP_SERVER_URL`        | `http://localhost:3001/mcp`                            | agent/.env                      | MCP server address            |
+| `MCP_TIMEOUT_S`         | `30`                                                   | agent/.env                      | MCP call timeout              |
+| `CHECKPOINT_DB`         | `checkpoints.sqlite`                                   | agent/.env                      | SQLite file for chat history  |
+| `AGENT_RECURSION_LIMIT` | `25`                                                   | agent/.env                      | Max tool calls per turn       |
 | `WATCHLIST_ROOT`        | `C:/Users/Mrdjan/Documents/mrdjan.stajic/Tv_langgraph` | server (hardcoded) + agent/.env | Directory for watchlist reads |
-| `MEDIA_ROOT`            | (empty)                                   | both        | Directory for downloads             |
-| `LANGSMITH_API_KEY`     | (empty)                                   | agent/.env  | For LangSmith tracing               |
-| `LANGSMITH_TRACING`     | `false`                                   | agent/.env  | Set `true` to enable traces         |
-| `LANGSMITH_PROJECT`     | `langgraph-mcp-agent`                     | agent/.env  | LangSmith project name              |
-| `MCP_BIND_HOST`         | `127.0.0.1`                               | server/.env | Server listen address               |
-| `MCP_BIND_PORT`         | `3001`                                    | server/.env | Server listen port                  |
-| `QBT_HOST`              | `localhost`                               | server/.env | qBittorrent Web UI host             |
-| `QBT_PORT`              | `8080`                                    | server/.env | qBittorrent Web UI port             |
-| `QBT_USERNAME`          | `admin`                                   | server/.env | qBittorrent username                |
-| `QBT_PASSWORD`          | `adminadmin`                              | server/.env | qBittorrent password                |
+| `MEDIA_ROOT`            | (empty)                                                | both                            | Directory for downloads       |
+| `LANGSMITH_API_KEY`     | (empty)                                                | agent/.env                      | For LangSmith tracing         |
+| `LANGSMITH_TRACING`     | `false`                                                | agent/.env                      | Set `true` to enable traces   |
+| `LANGSMITH_PROJECT`     | `langgraph-mcp-agent`                                  | agent/.env                      | LangSmith project name        |
+| `MCP_BIND_HOST`         | `127.0.0.1`                                            | server/.env                     | Server listen address         |
+| `MCP_BIND_PORT`         | `3001`                                                 | server/.env                     | Server listen port            |
+| `QBT_HOST`              | `localhost`                                            | server/.env                     | qBittorrent Web UI host       |
+| `QBT_PORT`              | `8080`                                                 | server/.env                     | qBittorrent Web UI port       |
+| `QBT_USERNAME`          | `admin`                                                | server/.env                     | qBittorrent username          |
+| `QBT_PASSWORD`          | `adminadmin`                                           | server/.env                     | qBittorrent password          |
 
 ---
 
@@ -300,6 +308,7 @@ C:\Users\Mrdjan\Documents\workspace\fable_playing\langgraph-automation\
 
 - **Feature** Obisidian integration (so it can be pulled as a context, better mcp, frontmatter parsing to get the correct md) (defered) - for now env
 - **Feature** Write tool to obsidian with frontmatter and md
+- **Feature** tool that check progress of the torrent
 - **Bug** : Duck duck go search results + this llm halucinate a loot - maybe imdb api or similar for actors/genres/ect
 - **Bug** I asked for a series A series B got started downloading
 - **Improvment** - system prompt, persona, tool descritption
