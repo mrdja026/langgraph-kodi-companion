@@ -9,6 +9,7 @@ const mediaDir = path.join(tmpDir, "media");
 
 let readWatchlist: typeof import("../src/tools/watchlist.js")["readWatchlist"];
 let watchlistSchema: typeof import("../src/tools/watchlist.js")["watchlistSchema"];
+let scanMediaLibrary: typeof import("../src/tools/media_library.js")["scanMediaLibrary"];
 let searchAndDownloadTvSeries: typeof import("../src/tools/series.js")["searchAndDownloadTvSeries"];
 let tvSeriesSchema: typeof import("../src/tools/series.js")["tvSeriesSchema"];
 let searchAndDownloadMovie: typeof import("../src/tools/movie.js")["searchAndDownloadMovie"];
@@ -59,6 +60,9 @@ beforeAll(async () => {
   readWatchlist = watchlist.readWatchlist;
   watchlistSchema = watchlist.watchlistSchema;
 
+  const mediaLib = await import("../src/tools/media_library.js");
+  scanMediaLibrary = mediaLib.scanMediaLibrary;
+
   const series = await import("../src/tools/series.js");
   searchAndDownloadTvSeries = series.searchAndDownloadTvSeries;
   tvSeriesSchema = series.tvSeriesSchema;
@@ -98,6 +102,14 @@ describe("readWatchlist", () => {
   it("falls back to root when requested directory does not exist", async () => {
     const result = await readWatchlist({ directory_path: "nonexistent-dir" });
     expect(result.content[0].text).toContain("No files found");
+  });
+});
+
+describe("scanMediaLibrary", () => {
+  it("returns media library contents from hardcoded path", async () => {
+    const result = await scanMediaLibrary();
+    expect(result.content[0].text).toContain("Movies");
+    expect(result.content[0].text).toContain("TV Series");
   });
 });
 

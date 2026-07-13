@@ -8,7 +8,6 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "ddgs>=9.14.4",
     "langchain-community>=0.4.2",
     "langchain-core>=1.4.8",
     "langchain-mcp-adapters>=0.3.0",
@@ -16,6 +15,7 @@ dependencies = [
     "langgraph>=1.2.7",
     "langgraph-checkpoint-sqlite>=3.1.0",
     "langsmith>=0.9.7",
+    "tavily-python>=0.5.0",
 ]
 
 [project.scripts]

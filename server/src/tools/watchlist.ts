@@ -30,6 +30,21 @@ function readDirContents(dir: string, label: string): { type: "text"; text: stri
     }
   }
 
+  // Also read movie/ and tv/ subdirectories if they exist
+  for (const sub of ["movie", "tv"]) {
+    const subPath = path.join(dir, sub);
+    if (fs.existsSync(subPath)) {
+      const subEntries = fs.readdirSync(subPath, { withFileTypes: true });
+      for (const entry of subEntries) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          const filePath = path.join(subPath, entry.name);
+          const content = fs.readFileSync(filePath, "utf-8");
+          parts.push(`--- ${sub}/${entry.name} ---\n${content}`);
+        }
+      }
+    }
+  }
+
   if (parts.length === 0) {
     return [{ type: "text", text: `No files found in: ${label}` }];
   }

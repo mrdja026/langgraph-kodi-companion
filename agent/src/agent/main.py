@@ -11,7 +11,7 @@ from agent.llm import check_llm_reachable
 from agent.tools import (
     create_mcp_client,
     verify_mcp_tools,
-    create_duckduckgo_tool,
+    create_web_search_tool,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +22,7 @@ class Spinner:
     def __init__(self):
         self._running = False
         self._task = None
-        self._frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self._frames = ["|", "/", "-", "\\", "|", "/", "-", "\\"]
 
     async def _spin(self):
         i = 0
@@ -105,8 +105,8 @@ async def main() -> None:
     mcp_tools = await client.get_tools()
     await verify_mcp_tools(mcp_tools)
 
-    duckduckgo = create_duckduckgo_tool()
-    all_tools = mcp_tools + [duckduckgo]
+    web_search = create_web_search_tool()
+    all_tools = mcp_tools + [web_search]
 
     config = {
         "configurable": {"thread_id": args.thread},
@@ -145,13 +145,13 @@ async def main() -> None:
                             last_msg = output["messages"][-1]
                             if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
                                 tool_names = [tc["name"] for tc in last_msg.tool_calls]
-                                print(f"\n  ▶ {', '.join(tool_names)}")
+                                print(f"\n  > {', '.join(tool_names)}")
                             if hasattr(last_msg, "content") and last_msg.content:
                                 final_answer = last_msg.content
                         elif node_name == "tools":
                             for msg in output.get("messages", []):
                                 if hasattr(msg, "name") and msg.name:
-                                    print(f"  ✓ {msg.name}")
+                                    print(f"  + {msg.name}")
                     await spinner.start()
             except asyncio.CancelledError:
                 print("\nInterrupted.")
@@ -163,7 +163,8 @@ async def main() -> None:
                 await spinner.stop()
 
             if final_answer:
-                print(f"\n{final_answer}")
+                safe = final_answer.encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding)
+                print(f"\n{safe}")
 
 
 if __name__ == "__main__":

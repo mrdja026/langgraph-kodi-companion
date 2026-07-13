@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     checkpoint_db: str = "checkpoints.sqlite"
     agent_recursion_limit: int = 25
 
+    tavily_api_key: str = ""
+
     langsmith_tracing: bool = False
     langsmith_api_key: str = ""
     langsmith_project: str = "langgraph-mcp-agent"
